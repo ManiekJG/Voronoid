@@ -1,0 +1,74 @@
+[gcode_macro _BEDFANVARS]
+variable_threshold: 90          # Bed target above this enables fans
+variable_bed_heat: 0.30         # Fan speed while bed is heating
+variable_chamber_high: 0.70     # Fan speed when chamber below target
+variable_chamber_low: 0.20      # Fan speed when chamber above target
+variable_chamber_target: 55     # Target chamber temperature
+variable_chamber_hyst: 1.5      # Chamber hysteresis (°C)
+gcode:
+
+[fan_generic BedFans]
+pin: PA8
+cycle_time: 0.04
+kick_start_time: 0.25
+
+
+[delayed_gcode bedfanloop]
+gcode:
+    {% set V = printer["gcode_macro _BEDFANVARS"] %}
+    {% set BED_TGT = printer.heater_bed.target|float %}
+    {% set BED_TMP = printer.heater_bed.temperature|float %}
+    {% set CH_TMP = printer["temperature_sensor chamber"].temperature|float %}
+
+    # Stop completely if bed target is below threshold
+    {% if BED_TGT < V.threshold %}
+        SET_FAN_SPEED FAN=BedFans SPEED=0
+        UPDATE_DELAYED_GCODE ID=bedfanloop DURATION=0
+        {% exit %}
+    {% endif %}
+
+    # Bed still heating
+    {% if BED_TMP < (BED_TGT - 5) %}
+        SET_FAN_SPEED FAN=BedFans SPEED={V.bed_heat}
+
+    # Bed hot → chamber control
+    {% else %}
+        {% if CH_TMP < (V.chamber_target - V.chamber_hyst) %}
+            SET_FAN_SPEED FAN=BedFans SPEED={V.chamber_high}
+        {% elif CH_TMP > (V.chamber_target + V.chamber_hyst) %}
+            SET_FAN_SPEED FAN=BedFans SPEED={V.chamber_low}
+        {% endif %}
+    {% endif %}
+
+    UPDATE_DELAYED_GCODE ID=bedfanloop DURATION=10
+
+[gcode_macro _BEDFAN_UPDATE]
+gcode:
+    {% set V = printer["gcode_macro _BEDFANVARS"] %}
+    {% if printer.heater_bed.target >= V.threshold %}
+        UPDATE_DELAYED_GCODE ID=bedfanloop DURATION=1
+    {% else %}
+        UPDATE_DELAYED_GCODE ID=bedfanloop DURATION=0
+        SET_FAN_SPEED FAN=BedFans SPEED=0
+    {% endif %}
+
+[gcode_macro M140]
+rename_existing: M99140
+gcode:
+    {% set S = params.S|default(0)|int %}
+    M99140 S{S}
+    _BEDFAN_UPDATE
+
+[gcode_macro M190]
+rename_existing: M99190
+gcode:
+    {% set S = params.S|default(0)|int %}
+    M99190 S{S}
+    _BEDFAN_UPDATE
+
+[gcode_macro TURN_OFF_HEATERS]
+rename_existing: _TURN_OFF_HEATERS
+gcode:
+    UPDATE_DELAYED_GCODE ID=bedfanloop DURATION=0
+    SET_FAN_SPEED FAN=BedFans SPEED=0
+    _TURN_OFF_HEATERS
