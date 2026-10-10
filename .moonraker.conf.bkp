@@ -67,18 +67,6 @@ restart_delay = 1.
 initial_state = OFF
 bound_services = klipper
 
-[update_manager BDsensor]
-type = git_repo
-primary_branch = new
-channel = dev
-path = ~/Bed_Distance_sensor
-origin = https://github.com/markniu/Bed_Distance_sensor.git
-install_script = ./klipper/install_BDsensor.sh
-is_system_service = False
-managed_services = klipper
-info_tags = 
-	desc=Bed Distance Sensor
-
 [update_manager Klippain-ShakeTune]
 type = git_repo
 origin = https://github.com/Frix-x/klippain-shaketune.git
@@ -106,4 +94,20 @@ origin = https://github.com/sanaahamel/nevermore-controller.git
 primary_branch = main
 is_system_service = False
 managed_services = klipper
+
+[update_manager cartographer_plugin]
+type = python
+channel = stable
+virtualenv = ~/klippy-env
+project_name = cartographer3d-plugin
+is_system_service = False
+managed_services = klipper
+info_tags = desc=Cartographer Plugin
+
+[update_manager Cartographer Firmware]
+type = git_repo
+path = ~/cartographer_firmware
+is_system_service = False
+origin = https://github.com/Cartographer3D/cartographer_firmware.git
+primary_branch = main
 
